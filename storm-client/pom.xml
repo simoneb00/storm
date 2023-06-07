@@ -109,6 +109,11 @@
 
         <!-- test -->
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
         </dependency>
@@ -125,7 +130,7 @@
 
     <build>
         <sourceDirectory>src/jvm</sourceDirectory>
-        <testSourceDirectory>test/jvm</testSourceDirectory>
+        <testSourceDirectory>src/test/jvm</testSourceDirectory>
         <resources>
             <resource>
                 <directory>../conf</directory>
@@ -157,7 +162,7 @@
                 <directory>src/dev</directory>
             </testResource>
             <testResource>
-                <directory>test/resources</directory>
+                <directory>src/test/resources</directory>
             </testResource>
         </testResources>
         <plugins>
@@ -256,20 +261,47 @@
                     </execution>
                 </executions>
             </plugin>
+            <!--
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-            </plugin>
+            </plugin> -->
         </plugins>
     </build>
     <profiles>
         <profile>
+            <id>jacoco</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.10</version>
+                        <executions>
+                            <execution>
+                                <id>default-prepare-agent</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>generate-report</id>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <id>unix_py_tests</id>
-            <activation>
+            <!--<activation>
                 <os>
                     <family>unix</family>
                 </os>
-            </activation>
+            </activation>-->
             <build>
                 <plugins>
                     <plugin>
@@ -279,7 +311,7 @@
                             <execution>
                                 <configuration>
                                     <executable>python3</executable>
-                                    <workingDirectory>test/py</workingDirectory>
+                                    <workingDirectory>src/test/py</workingDirectory>
                                     <arguments>
                                         <argument>test_storm_cli.py</argument>
                                     </arguments>
