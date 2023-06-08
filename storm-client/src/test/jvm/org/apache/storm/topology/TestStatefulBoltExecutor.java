@@ -1,7 +1,6 @@
 package org.apache.storm.topology;
 
 
-import org.apache.storm.generated.Bolt;
 import org.apache.storm.generated.GlobalStreamId;
 import org.apache.storm.generated.Grouping;
 import org.apache.storm.spout.CheckPointState;
@@ -15,7 +14,6 @@ import org.apache.storm.state.State;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.tuple.Tuple;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -27,6 +25,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import static org.mockito.Mockito.*;
@@ -166,13 +165,16 @@ public class TestStatefulBoltExecutor {
      *  - PREPARE: prepare a transaction for the commit
      *  - COMMIT: commit a previously prepared transaction
      *  - ROLLBACK: rollback the previously prepared transaction(s)
-     *
      */
 
 
     /* test of methods processCheckpoint and handleCheckpoint, wrt the action INITSTATE, through the invocation of execute() on a checkpoint tuple */
     @Test
     public void testInitBoltCheckpoint() {
+
+        /* Expected behavior:
+         * - if the bolt's state is not initialized, every attempt of execution will fail
+         * - once a bolt is initialized, it's possible to execute it over tuples, and every pending execution (i.e., executions requested when the bolt was not initialized) will be fulfilled */
 
         Tuple tuple1 = mock(Tuple.class);
         Tuple tuple2 = mock(Tuple.class);
@@ -192,8 +194,19 @@ public class TestStatefulBoltExecutor {
         when(mockedCheckpointTuple.getSourceStreamId()).thenReturn(CheckpointSpout.CHECKPOINT_STREAM_ID); // checkpoint tuple: the checkpoint tuples flow through a dedicated internal stream called $checkpoint
         when(mockedCheckpointTuple.getValueByField(CheckpointSpout.CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.INITSTATE);
 
+        AtomicBoolean hasInit = new AtomicBoolean(false);
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocationOnMock) throws Throwable {
+                hasInit.set(true);
+                return null;
+            }
+        });
+
         /* this call must inject a checkpoint to the action INITSTATE, so the bolt's state should be initialized and all the pending operations should be executed */
         executor.execute(mockedCheckpointTuple);
+
+        assertTrue(hasInit.get());
 
         /* the method initState must be called to initiate the bolt */
         verify(mockedBolt, times(1)).initState(any(KeyValueState.class));
@@ -208,6 +221,12 @@ public class TestStatefulBoltExecutor {
     @Test
     public void testPrepareAndCommitCheckpoint() {
 
+        /*  The action PREPARE prepares a transaction to be committed, while the action COMMIT actually commits the transaction.
+         *  It is important that, when these actions are requested, the methods bolt.prePrepare() and bolt.preCommit(), as well as the methods state.prepareCommit() and state.commit() are invoked,
+         *  in order to allow the executions of preparatory operations respectively on the bolt and on the state (the latter is crucial for obvious fault tolerance reasons)
+         *
+         */
+
         Tuple mockedTuple = mock(Tuple.class);
         State state = mock(State.class);
 
@@ -215,8 +234,8 @@ public class TestStatefulBoltExecutor {
 
         /* expected behavior:
          * - if we execute the action PREPARE, without initializing the bolt -> fail
-         * - if we execute the action INITSTATE, then PREPARE and COMMIT -> the methods bolt.prePrepare(), state.prepareCommit(), bolt.preCommit and state.commit() are correctly invoked, with the correct txid
-         * - TODO: possible extension, in this phase the dummy bolt does not ack tuples, so we can't test the proper handling of preparedTuples in PREPARE and COMMIT actions -> integration test with an actual bolt
+         * - if we execute the action INITSTATE, then PREPARE and COMMIT -> the methods bolt.prePrepare(), state.prepareCommit(), bolt.preCommit and state.commit() are correctly invoked, with the correct txid,
+         *   and the action is successfully acked to the OutputCollector.
          */
 
         /* try without initialization, expected result: fail propagated to the output collector */
@@ -231,23 +250,45 @@ public class TestStatefulBoltExecutor {
         when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.INITSTATE);
         executor.execute(mockedTuple);
 
+
         /* prepare: the method bolt.prePrepare() should be invoked, with the txid specified */
         when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.PREPARE);
         when(mockedTuple.getLongByField(CHECKPOINT_FIELD_TXID)).thenReturn(12345L);
+        AtomicBoolean hasPrepared = new AtomicBoolean(false);
+
+        doAnswer(invocationOnMock -> {
+            hasPrepared.set(true);
+            return null;
+        }).when(outputCollector).ack(mockedTuple);
+
+
         executor.execute(mockedTuple);
         verify(mockedBolt, times(1)).prePrepare(12345L);
         verify(state, times(1)).prepareCommit(12345L);
+        assertTrue(hasPrepared.get());
+
 
         /* commit: the method bolt.preCommit() should be invoked, with the txid specified */
         when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.COMMIT);
+
+        AtomicBoolean hasCommitted = new AtomicBoolean(false);
+        doAnswer(invocationOnMock -> {
+            hasCommitted.set(true);
+            return null;
+        }).when(outputCollector).ack(mockedTuple);
+
         executor.execute(mockedTuple);
         verify(mockedBolt, times(1)).preCommit(12345L);
         verify(state, times(1)).commit(12345L);
+        assertTrue(hasCommitted.get());
     }
 
     /* test of methods processCheckpoint and handleCheckpoint, wrt to the action ROLLBACK, through the invocation of execute() on checkpoint tuples */
     @Test
     public void testRollbackCheckpoint() {
+
+        /*  Expected behavior: the methods bolt.preRollback() and state.rollback() are invoked, then the execution is acked to the OutputCollector */
+
         Tuple mockTuple = mock(Tuple.class);
         State state = mock(State.class);
 
@@ -257,8 +298,15 @@ public class TestStatefulBoltExecutor {
         when(mockTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.ROLLBACK);
         when(mockTuple.getValueByField(CHECKPOINT_FIELD_TXID)).thenReturn(54321L);
 
+        AtomicBoolean hasRollback = new AtomicBoolean(false);
+        doAnswer(invocationOnMock -> {
+            hasRollback.set(true);
+            return null;
+        }).when(outputCollector).ack(mockTuple);
+
         executor.execute(mockTuple);
         verify(mockedBolt, times(1)).preRollback();
         verify(state, times(1)).rollback();
+        assertTrue(hasRollback.get());
     }
 }
