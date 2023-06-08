@@ -209,9 +209,25 @@ public class TestStatefulBoltExecutor {
     public void testPrepareAndCommitCheckpoint() {
 
         Tuple mockedTuple = mock(Tuple.class);
+        State state = mock(State.class);
+
+        executor.prepare(topoConf, context, outputCollector, state);    // we re-prepare the executor, specifying the state, to test the interaction with the state
+
+        /* expected behavior:
+         * - if we execute the action PREPARE, without initializing the bolt -> fail
+         * - if we execute the action INITSTATE, then PREPARE and COMMIT -> the methods bolt.prePrepare(), state.prepareCommit(), bolt.preCommit and state.commit() are correctly invoked, with the correct txid
+         * - TODO: possible extension, in this phase the dummy bolt does not ack tuples, so we can't test the proper handling of preparedTuples in PREPARE and COMMIT actions -> integration test with an actual bolt
+         */
+
+        /* try without initialization, expected result: fail propagated to the output collector */
+        when(mockedTuple.getSourceStreamId()).thenReturn(CHECKPOINT_STREAM_ID);
+        when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.PREPARE);
+        executor.execute(mockedTuple);
+        verify(mockedBolt, times(0)).prePrepare(anyLong());
+        verify(state, times(0)).prepareCommit(anyLong());
+        verify(outputCollector).fail(mockedTuple);
 
         /* state initialization */
-        when(mockedTuple.getSourceStreamId()).thenReturn(CHECKPOINT_STREAM_ID);
         when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.INITSTATE);
         executor.execute(mockedTuple);
 
@@ -220,13 +236,29 @@ public class TestStatefulBoltExecutor {
         when(mockedTuple.getLongByField(CHECKPOINT_FIELD_TXID)).thenReturn(12345L);
         executor.execute(mockedTuple);
         verify(mockedBolt, times(1)).prePrepare(12345L);
-        // TODO: in this phase (unit testing) there are not acked tuples by the (dummy) bolt, so we can't test the handling of the preparedTuples, maybe it can be done in integration testing with an actual bolt
+        verify(state, times(1)).prepareCommit(12345L);
 
         /* commit: the method bolt.preCommit() should be invoked, with the txid specified */
         when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.COMMIT);
         executor.execute(mockedTuple);
         verify(mockedBolt, times(1)).preCommit(12345L);
-        /* TODO: as before, an integration test with an actual bolt that verifies that the preparedTuples are actually acked would be nice */
+        verify(state, times(1)).commit(12345L);
+    }
 
+    /* test of methods processCheckpoint and handleCheckpoint, wrt to the action ROLLBACK, through the invocation of execute() on checkpoint tuples */
+    @Test
+    public void testRollbackCheckpoint() {
+        Tuple mockTuple = mock(Tuple.class);
+        State state = mock(State.class);
+
+        executor.prepare(topoConf, context, outputCollector, state);
+
+        when(mockTuple.getSourceStreamId()).thenReturn(CHECKPOINT_STREAM_ID);
+        when(mockTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.ROLLBACK);
+        when(mockTuple.getValueByField(CHECKPOINT_FIELD_TXID)).thenReturn(54321L);
+
+        executor.execute(mockTuple);
+        verify(mockedBolt, times(1)).preRollback();
+        verify(state, times(1)).rollback();
     }
 }
