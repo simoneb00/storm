@@ -2,8 +2,13 @@ package org.apache.storm.topology;
 
 
 import org.apache.storm.generated.Bolt;
+import org.apache.storm.generated.GlobalStreamId;
+import org.apache.storm.generated.Grouping;
 import org.apache.storm.spout.CheckPointState;
+import org.apache.storm.spout.CheckpointSpout;
 import org.apache.storm.state.KeyValueState;
+
+import static org.apache.storm.spout.CheckpointSpout.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.apache.storm.state.State;
@@ -18,13 +23,17 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static org.mockito.Mockito.*;
 
+/**
+ * This class tests the functionalities exported by the class {@link StatefulBoltExecutor} and the abstract class {@link BaseStatefulBoltExecutor}.
+ */
 public class TestStatefulBoltExecutor {
 
     private static final int VALID = 0;
@@ -40,6 +49,9 @@ public class TestStatefulBoltExecutor {
     @Mock
     private OutputCollector outputCollector;
 
+    private GlobalStreamId globalStreamId = new GlobalStreamId("checkpoint_stream", CHECKPOINT_STREAM_ID);  // id of the checkpoint stream
+
+
 
     @BeforeEach
     public void setUp() {
@@ -47,6 +59,15 @@ public class TestStatefulBoltExecutor {
         mockedBolt = mock(IStatefulBolt.class);
         executor = new StatefulBoltExecutor<>(mockedBolt);
         assertNotNull(executor);
+
+        /* the following initialization is needed in order to have only one input checkpoint stream */
+        Map<GlobalStreamId, Grouping> map = new HashMap<>();
+        map.put(globalStreamId, mock(Grouping.class));
+        when(context.getThisSources()).thenReturn(map);
+        ArrayList<Integer> dummyList = new ArrayList<>();
+        dummyList.add(1);
+        when(context.getComponentTasks(anyString())).thenReturn(dummyList);
+
         executor.prepare(topoConf, context, outputCollector);
     }
 
@@ -135,23 +156,21 @@ public class TestStatefulBoltExecutor {
         Tuple mockedTuple = mock(Tuple.class);
 
         /* no bolt initialization, so we don't expect the bolt to execute */
-        executor.handleTuple(mockedTuple);
+        executor.execute(mockedTuple);
         verify(mockedBolt, times(0)).execute(mockedTuple);
     }
 
-    @Test
-    public void testHandleTupleWithBoltInitialization() {
 
-        Tuple mockedTuple = mock(Tuple.class);
+    /*  Actions:
+     *  - INITSTATE: initialize the state
+     *  - PREPARE: prepare a transaction for the commit
+     *  - COMMIT: commit a previously prepared transaction
+     *  - ROLLBACK: rollback the previously prepared transaction(s)
+     *
+     */
 
-        /* here we use the checkpoint mechanism to set the bolt to the state "initialized" */
-        executor.handleCheckpoint(mockedTuple, CheckPointState.Action.INITSTATE, 0);
 
-        executor.handleTuple(mockedTuple);
-        verify(mockedBolt, times(1)).execute(mockedTuple);
-    }
-
-    /* we want to test the handleCheckpoint method, wrt the action INITSTATE */
+    /* test of methods processCheckpoint and handleCheckpoint, wrt the action INITSTATE, through the invocation of execute() on a checkpoint tuple */
     @Test
     public void testInitBoltCheckpoint() {
 
@@ -160,21 +179,54 @@ public class TestStatefulBoltExecutor {
         Tuple tuple3 = mock(Tuple.class);
 
         /* the bolt is not initialized, so if we try to execute it on some tuples, the executions won't occur and will become pending */
-        executor.handleTuple(tuple1);
-        executor.handleTuple(tuple2);
-        executor.handleTuple(tuple3);
+        executor.execute(tuple1);
+        executor.execute(tuple2);
+        executor.execute(tuple3);
 
         verify(mockedBolt, times(0)).execute(tuple1);
         verify(mockedBolt, times(0)).execute(tuple2);
         verify(mockedBolt, times(0)).execute(tuple3);
 
-        /* let's add a checkpoint to the action INITSTATE */
-        executor.handleCheckpoint(tuple1, CheckPointState.Action.INITSTATE, 123);
+        /* let's simulate the case in which the input tuple is a checkpoint tuple, for the action INITSTATE */
+        Tuple mockedCheckpointTuple = mock(Tuple.class);
+        when(mockedCheckpointTuple.getSourceStreamId()).thenReturn(CheckpointSpout.CHECKPOINT_STREAM_ID); // checkpoint tuple: the checkpoint tuples flow through a dedicated internal stream called $checkpoint
+        when(mockedCheckpointTuple.getValueByField(CheckpointSpout.CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.INITSTATE);
+
+        /* this call must inject a checkpoint to the action INITSTATE, so the bolt's state should be initialized and all the pending operations should be executed */
+        executor.execute(mockedCheckpointTuple);
 
         /* the method initState must be called to initiate the bolt */
         verify(mockedBolt, times(1)).initState(any(KeyValueState.class));
 
         /* The 3 pending operations are finally executed */
-        verify(mockedBolt, times(3)).execute(any(Tuple.class));
+        verify(mockedBolt, times(1)).execute(tuple1);
+        verify(mockedBolt, times(1)).execute(tuple2);
+        verify(mockedBolt, times(1)).execute(tuple3);
+    }
+
+    /* test of methods processCheckpoint and handleCheckpoint, wrt to the actions PREPARE and COMMIT, through the invocation of execute() on checkpoint tuples */
+    @Test
+    public void testPrepareAndCommitCheckpoint() {
+
+        Tuple mockedTuple = mock(Tuple.class);
+
+        /* state initialization */
+        when(mockedTuple.getSourceStreamId()).thenReturn(CHECKPOINT_STREAM_ID);
+        when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.INITSTATE);
+        executor.execute(mockedTuple);
+
+        /* prepare: the method bolt.prePrepare() should be invoked, with the txid specified */
+        when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.PREPARE);
+        when(mockedTuple.getLongByField(CHECKPOINT_FIELD_TXID)).thenReturn(12345L);
+        executor.execute(mockedTuple);
+        verify(mockedBolt, times(1)).prePrepare(12345L);
+        // TODO: in this phase (unit testing) there are not acked tuples by the (dummy) bolt, so we can't test the handling of the preparedTuples, maybe it can be done in integration testing with an actual bolt
+
+        /* commit: the method bolt.preCommit() should be invoked, with the txid specified */
+        when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.COMMIT);
+        executor.execute(mockedTuple);
+        verify(mockedBolt, times(1)).preCommit(12345L);
+        /* TODO: as before, an integration test with an actual bolt that verifies that the preparedTuples are actually acked would be nice */
+
     }
 }
