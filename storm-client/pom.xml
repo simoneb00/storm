@@ -108,9 +108,20 @@
         <!-- end of transitive dependency management -->
 
         <!-- test -->
-        <dependency>
+        <!--<dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>-->
+        <dependency>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-junit5-plugin</artifactId>
+            <version>1.2.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.8.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -130,7 +141,7 @@
 
     <build>
         <sourceDirectory>src/jvm</sourceDirectory>
-        <testSourceDirectory>src/test/jvm</testSourceDirectory>
+        <testSourceDirectory>test/jvm</testSourceDirectory>
         <resources>
             <resource>
                 <directory>../conf</directory>
@@ -162,7 +173,7 @@
                 <directory>src/dev</directory>
             </testResource>
             <testResource>
-                <directory>src/test/resources</directory>
+                <directory>test/resources</directory>
             </testResource>
         </testResources>
         <plugins>
@@ -270,6 +281,110 @@
     </build>
     <profiles>
         <profile>
+            <id>badua</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <!-- Use a stable version istead of SNAPSHOT one -->
+                <ba-dua.version>0.8.1-SNAPSHOT</ba-dua.version>
+                <argLine>-javaagent:target/dependency/ba-dua-agent-rt-${ba-dua.version}-all.jar
+                    -Doutput.file=target/badua.ser
+                </argLine>
+            </properties>
+            <!-- Needed for generate the report -->
+            <dependencies>
+                <dependency>
+                    <groupId>br.usp.each.saeg</groupId>
+                    <artifactId>ba-dua-cli</artifactId>
+                    <version>0.8.1-SNAPSHOT</version>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <!-- Copy ba-dua-agent-rt from .m2 directory to target/dependency -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>2.10</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>copy</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>br.usp.each.saeg</groupId>
+                                            <artifactId>ba-dua-agent-rt</artifactId>
+                                            <classifier>all</classifier>
+                                            <version>0.8.1-SNAPSHOT</version>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Generate report in xml format -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>1.5.0</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <phase>verify</phase>
+                                <configuration>
+                                    <mainClass>br.usp.each.saeg.badua.cli.Report</mainClass>
+                                    <arguments>
+                                        <argument>-input</argument>
+                                        <argument>${project.build.directory}/badua.ser</argument>
+                                        <argument>-classes</argument>
+                                        <argument>${project.build.outputDirectory}</argument>
+                                        <argument>-show-classes</argument>
+                                        <argument>-show-methods</argument>
+                                        <argument>-xml</argument>
+                                        <argument>${project.build.directory}/badua.xml</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>pit</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>1.14.1</version>
+                        <configuration>
+                            <targetClasses>
+                                <param>org.apache.storm.topology.StatefulBoltExecutor</param>
+                            </targetClasses>
+                            <targetTests>
+                                <param>org.apache.storm.topology.TestStatefulBoltExecutor</param>
+                            </targetTests>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>mutationCoverage</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <id>jacoco</id>
             <build>
                 <plugins>
@@ -311,7 +426,7 @@
                             <execution>
                                 <configuration>
                                     <executable>python3</executable>
-                                    <workingDirectory>src/test/py</workingDirectory>
+                                    <workingDirectory>test/py</workingDirectory>
                                     <arguments>
                                         <argument>test_storm_cli.py</argument>
                                     </arguments>

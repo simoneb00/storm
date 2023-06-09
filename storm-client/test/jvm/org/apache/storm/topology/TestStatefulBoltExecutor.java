@@ -8,6 +8,7 @@ import org.apache.storm.spout.CheckpointSpout;
 import org.apache.storm.state.KeyValueState;
 
 import static org.apache.storm.spout.CheckpointSpout.*;
+import static org.apache.storm.utils.TestingUtils.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.apache.storm.state.State;
@@ -68,60 +69,6 @@ public class TestStatefulBoltExecutor {
         when(context.getComponentTasks(anyString())).thenReturn(dummyList);
 
         executor.prepare(topoConf, context, outputCollector);
-    }
-
-    private static Map<String, Object> getTopoConf(int type) {
-        switch (type) {
-            case VALID:
-                return new HashMap<>();
-            case INVALID:
-                Map<String, Object> map = mock(HashMap.class);
-                doThrow(new RuntimeException("Invalid configuration")).when(map).get(any());
-                return map;
-            case NULL:
-                return null;
-            default:
-                fail("Unexpected type.");
-                return null;
-        }
-    }
-
-    private static TopologyContext getContext(int type) {
-        TopologyContext topologyContext = mock(TopologyContext.class);
-        switch (type) {
-            case VALID:
-                return topologyContext;
-            case INVALID:
-                doThrow(new RuntimeException("Invalid context")).when(topologyContext).getExecutorData(anyString());
-                doThrow(new RuntimeException("Invalid context")).when(topologyContext).getHooks();
-                doThrow(new RuntimeException("Invalid context")).when(topologyContext).getNodeToHost();
-                doThrow(new RuntimeException("Invalid context")).when(topologyContext).getThisComponentId();
-                return topologyContext;
-            case NULL:
-                return null;
-            default:
-                fail("Unexpected type.");
-                return null;
-        }
-    }
-
-    private static OutputCollector getOutputCollector(int type) {
-        OutputCollector outputCollector = mock(OutputCollector.class);
-        switch (type) {
-            case VALID:
-                return outputCollector;
-            case INVALID:
-                doThrow(new RuntimeException("Invalid collector")).when(outputCollector).emit(any());
-                doThrow(new RuntimeException("Invalid collector")).when(outputCollector).emit(anyString(), any());
-                doThrow(new RuntimeException("Invalid collector")).when(outputCollector).emit(anyCollection(), any());
-                doThrow(new RuntimeException("Invalid collector")).when(outputCollector).emit(any(), anyCollection(), any());
-                return outputCollector;
-            case NULL:
-                return null;
-            default:
-                fail("Unexpected type.");
-                return null;
-        }
     }
 
     private static Stream<Arguments> prepareParams() {
@@ -195,13 +142,10 @@ public class TestStatefulBoltExecutor {
         when(mockedCheckpointTuple.getValueByField(CheckpointSpout.CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.INITSTATE);
 
         AtomicBoolean hasInit = new AtomicBoolean(false);
-        doAnswer(new Answer() {
-            @Override
-            public Object answer(InvocationOnMock invocationOnMock) throws Throwable {
-                hasInit.set(true);
-                return null;
-            }
-        });
+        doAnswer(invocationOnMock -> {
+            hasInit.set(true);
+            return null;
+        }).when(outputCollector).ack(mockedCheckpointTuple);
 
         /* this call must inject a checkpoint to the action INITSTATE, so the bolt's state should be initialized and all the pending operations should be executed */
         executor.execute(mockedCheckpointTuple);
