@@ -287,7 +287,7 @@
             </activation>
             <properties>
                 <!-- Use a stable version istead of SNAPSHOT one -->
-                <ba-dua.version>0.8.1-SNAPSHOT</ba-dua.version>
+                <ba-dua.version>0.6.0</ba-dua.version>
                 <argLine>-javaagent:target/dependency/ba-dua-agent-rt-${ba-dua.version}-all.jar
                     -Doutput.file=target/badua.ser
                 </argLine>
@@ -297,7 +297,7 @@
                 <dependency>
                     <groupId>br.usp.each.saeg</groupId>
                     <artifactId>ba-dua-cli</artifactId>
-                    <version>0.8.1-SNAPSHOT</version>
+                    <version>0.6.0</version>
                 </dependency>
             </dependencies>
             <build>
@@ -318,7 +318,7 @@
                                             <groupId>br.usp.each.saeg</groupId>
                                             <artifactId>ba-dua-agent-rt</artifactId>
                                             <classifier>all</classifier>
-                                            <version>0.8.1-SNAPSHOT</version>
+                                            <version>0.6.0</version>
                                         </artifactItem>
                                     </artifactItems>
                                 </configuration>
@@ -394,16 +394,11 @@
                         <version>0.8.10</version>
                         <executions>
                             <execution>
-                                <id>default-prepare-agent</id>
-                                <goals>
-                                    <goal>prepare-agent</goal>
-                                </goals>
-                            </execution>
-                            <execution>
                                 <id>generate-report</id>
                                 <goals>
                                     <goal>report</goal>
                                 </goals>
+                                <phase>verify</phase>
                             </execution>
                         </executions>
                     </plugin>

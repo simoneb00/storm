@@ -75,7 +75,7 @@ public class StatefulBoltExecutor<T extends State> extends BaseStatefulBoltExecu
         bolt.declareOutputFields(declarer);
         declareCheckpointStream(declarer);
     }
-
+    
     @Override
     public Map<String, Object> getComponentConfiguration() {
         return bolt.getComponentConfiguration();
