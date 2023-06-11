@@ -16,20 +16,18 @@ import static org.apache.storm.spout.CheckpointSpout.*;
 
 public class TupleCollectorBolt extends BaseRichBolt implements IRichBolt {
     private OutputCollector collector;
-    private List<Tuple> emittedTuples;
+    private static List<Tuple> emittedTuples = new ArrayList<>();
 
     @Override
     public void prepare(Map<String, Object> conf, TopologyContext context, OutputCollector collector) {
         this.collector = collector;
-        this.emittedTuples = new ArrayList<>();
     }
 
 
     @Override
     public void execute(Tuple tuple) {
         CheckPointState.Action action = (CheckPointState.Action) tuple.getValueByField(CHECKPOINT_FIELD_ACTION);
-        System.out.println("\n\n\nNew message\n" + action.name() + "\n\n\n");
-        emittedTuples.add(tuple);
+        emittedTuples.add(tuple);;
         collector.ack(tuple);
     }
 
@@ -40,6 +38,16 @@ public class TupleCollectorBolt extends BaseRichBolt implements IRichBolt {
     @Override
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
         declarer.declareStream(CHECKPOINT_STREAM_ID, new Fields(CHECKPOINT_FIELD_TXID, CHECKPOINT_FIELD_ACTION));
+    }
+
+    public List<CheckPointState.Action> getTrackedActions() {
+        List<CheckPointState.Action> actions = new ArrayList<>();
+
+        for (Tuple tuple : emittedTuples) {
+            actions.add((CheckPointState.Action) tuple.getValueByField(CHECKPOINT_FIELD_ACTION));
+        }
+
+        return actions;
     }
 
 }
