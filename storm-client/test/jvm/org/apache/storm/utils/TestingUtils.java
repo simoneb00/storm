@@ -25,6 +25,10 @@ public class TestingUtils {
             case INVALID:
                 Map<String, Object> map = mock(HashMap.class);
                 doThrow(new RuntimeException("Invalid configuration")).when(map).get(any());
+                doThrow(new RuntimeException("Invalid configuration")).when(map).containsKey(any());
+                doThrow(new RuntimeException("Invalid configuration")).when(map).put(any(), any());
+                doThrow(new RuntimeException("Invalid configuration")).when(map).keySet();
+                doThrow(new RuntimeException("Invalid configuration")).when(map).entrySet();
                 return map;
             case NULL:
                 return null;

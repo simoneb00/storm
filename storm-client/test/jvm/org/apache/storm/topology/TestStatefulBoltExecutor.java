@@ -6,11 +6,6 @@ import org.apache.storm.generated.Grouping;
 import org.apache.storm.spout.CheckPointState;
 import org.apache.storm.spout.CheckpointSpout;
 import org.apache.storm.state.KeyValueState;
-
-import static org.apache.storm.spout.CheckpointSpout.*;
-import static org.apache.storm.utils.TestingUtils.*;
-import static org.junit.jupiter.api.Assertions.*;
-
 import org.apache.storm.state.State;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
@@ -22,13 +17,16 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
+import static org.apache.storm.spout.CheckpointSpout.*;
+import static org.apache.storm.utils.TestingUtils.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -71,15 +69,38 @@ public class TestStatefulBoltExecutor {
         executor.prepare(topoConf, context, outputCollector);
     }
 
+    /*  The commented out configurations fail: OutputCollector is never checked to be non-null or valid */
     private static Stream<Arguments> prepareParams() {
         return Stream.of(
                 Arguments.of(getTopoConf(VALID), getContext(VALID), getOutputCollector(VALID), false),
-                //Arguments.of(getTopoConf(INVALID), getContext(VALID), getOutputCollector(VALID), true), TODO
+                //Arguments.of(getTopoConf(VALID), getContext(VALID), getOutputCollector(INVALID), true),
                 Arguments.of(getTopoConf(VALID), getContext(INVALID), getOutputCollector(VALID), true),
-                //Arguments.of(getTopoConf(INVALID), getContext(VALID), getOutputCollector(INVALID), true), TODO
-                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getOutputCollector(INVALID), true),
                 Arguments.of(getTopoConf(VALID), getContext(INVALID), getOutputCollector(INVALID), true),
-                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getOutputCollector(INVALID), true)
+                Arguments.of(getTopoConf(VALID), getContext(NULL), getOutputCollector(VALID), true),
+                //Arguments.of(getTopoConf(VALID), getContext(VALID), getOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(VALID), getContext(NULL), getOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(VALID), getContext(INVALID), getOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(VALID), getContext(NULL), getOutputCollector(INVALID), true),
+
+                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(VALID), getOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(VALID), getOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(INVALID), getContext(NULL), getOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(NULL), getOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(INVALID), getContext(NULL), getOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(VALID), getOutputCollector(NULL), true),
+
+                Arguments.of(getTopoConf(NULL), getContext(NULL), getOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(NULL), getContext(VALID), getOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(NULL), getContext(NULL), getOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(VALID), getOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(INVALID), getOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(NULL), getContext(NULL), getOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(INVALID), getOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(INVALID), getOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(VALID), getOutputCollector(INVALID), true)
         );
     }
 

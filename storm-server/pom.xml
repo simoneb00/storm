@@ -183,9 +183,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <configuration>
-                    <reportsDirectory>${project.build.directory}/test-reports</reportsDirectory>
-                </configuration>
+                <version>${maven-failsafe-plugin.version}</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -240,7 +238,7 @@
                 <dependency>
                     <groupId>br.usp.each.saeg</groupId>
                     <artifactId>ba-dua-cli</artifactId>
-                    <version>0.6.0</version>
+                    <version>${ba-dua.version}</version>
                 </dependency>
             </dependencies>
             <build>
@@ -261,7 +259,7 @@
                                             <groupId>br.usp.each.saeg</groupId>
                                             <artifactId>ba-dua-agent-rt</artifactId>
                                             <classifier>all</classifier>
-                                            <version>0.6.0</version>
+                                            <version>${ba-dua.version}</version>
                                         </artifactItem>
                                     </artifactItems>
                                 </configuration>

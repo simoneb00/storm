@@ -35,16 +35,38 @@ public class TestCheckpointSpout {
         state = new InMemoryKeyValueState<>();
     }
 
+    /* The commented out configurations fail, because SpoutOutputCollector is never checked to be non-null or invalid */
     private static Stream<Arguments> openParams() {
         return Stream.of(
                 Arguments.of(getTopoConf(VALID), getContext(VALID), getSpoutOutputCollector(VALID), false),
-                //Arguments.of(getTopoConf(INVALID), getContext(VALID), getSpoutOutputCollector(VALID), true),  TODO
+                //Arguments.of(getTopoConf(VALID), getContext(VALID), getSpoutOutputCollector(INVALID), true),
                 Arguments.of(getTopoConf(VALID), getContext(INVALID), getSpoutOutputCollector(VALID), true),
-                //Arguments.of(getTopoConf(VALID), getContext(VALID), getSpoutOutputCollector(INVALID), true),  TODO
-                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getSpoutOutputCollector(VALID), true),
                 Arguments.of(getTopoConf(VALID), getContext(INVALID), getSpoutOutputCollector(INVALID), true),
-                //Arguments.of(getTopoConf(INVALID), getContext(VALID), getSpoutOutputCollector(INVALID), true),   TODO
-                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getSpoutOutputCollector(INVALID), true)
+                Arguments.of(getTopoConf(VALID), getContext(NULL), getSpoutOutputCollector(VALID), true),
+                //Arguments.of(getTopoConf(VALID), getContext(VALID), getSpoutOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(VALID), getContext(NULL), getSpoutOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(VALID), getContext(INVALID), getSpoutOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(VALID), getContext(NULL), getSpoutOutputCollector(INVALID), true),
+
+                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getSpoutOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getSpoutOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(VALID), getSpoutOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(VALID), getSpoutOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(INVALID), getSpoutOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(INVALID), getContext(NULL), getSpoutOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(NULL), getSpoutOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(INVALID), getContext(NULL), getSpoutOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(INVALID), getContext(VALID), getSpoutOutputCollector(NULL), true),
+
+                Arguments.of(getTopoConf(NULL), getContext(NULL), getSpoutOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(NULL), getContext(VALID), getSpoutOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(NULL), getContext(NULL), getSpoutOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(VALID), getSpoutOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(INVALID), getSpoutOutputCollector(NULL), true),
+                Arguments.of(getTopoConf(NULL), getContext(NULL), getSpoutOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(INVALID), getSpoutOutputCollector(INVALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(INVALID), getSpoutOutputCollector(VALID), true),
+                Arguments.of(getTopoConf(NULL), getContext(VALID), getSpoutOutputCollector(INVALID), true)
         );
     }
 

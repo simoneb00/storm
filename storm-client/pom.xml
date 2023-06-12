@@ -272,11 +272,10 @@
                     </execution>
                 </executions>
             </plugin>
-            <!--
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-            </plugin> -->
+            </plugin>
         </plugins>
     </build>
     <profiles>
@@ -297,7 +296,7 @@
                 <dependency>
                     <groupId>br.usp.each.saeg</groupId>
                     <artifactId>ba-dua-cli</artifactId>
-                    <version>0.6.0</version>
+                    <version>${ba-dua.version}</version>
                 </dependency>
             </dependencies>
             <build>
@@ -318,7 +317,7 @@
                                             <groupId>br.usp.each.saeg</groupId>
                                             <artifactId>ba-dua-agent-rt</artifactId>
                                             <classifier>all</classifier>
-                                            <version>0.6.0</version>
+                                            <version>${ba-dua.version}</version>
                                         </artifactItem>
                                     </artifactItems>
                                 </configuration>
@@ -367,9 +366,12 @@
                         <configuration>
                             <targetClasses>
                                 <param>org.apache.storm.topology.StatefulBoltExecutor</param>
+                                <param>org.apache.storm.topology.BaseStatefulBoltExecutor</param>
+                                <param>org.apache.storm.spout.CheckpointSpout</param>
                             </targetClasses>
                             <targetTests>
                                 <param>org.apache.storm.topology.TestStatefulBoltExecutor</param>
+                                <param>org.apache.storm.spout.TestCheckpointSpout</param>
                             </targetTests>
                         </configuration>
                         <executions>
