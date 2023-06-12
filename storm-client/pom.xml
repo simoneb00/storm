@@ -325,33 +325,7 @@
                         </executions>
                     </plugin>
 
-                    <!-- Generate report in xml format -->
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>1.5.0</version>
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
-                                <phase>verify</phase>
-                                <configuration>
-                                    <mainClass>br.usp.each.saeg.badua.cli.Report</mainClass>
-                                    <arguments>
-                                        <argument>-input</argument>
-                                        <argument>${project.build.directory}/badua.ser</argument>
-                                        <argument>-classes</argument>
-                                        <argument>${project.build.outputDirectory}</argument>
-                                        <argument>-show-classes</argument>
-                                        <argument>-show-methods</argument>
-                                        <argument>-xml</argument>
-                                        <argument>${project.build.directory}/badua.xml</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
+                    <!-- The report generation in xml format is not available due to issues with exec-maven-plugin -->
                 </plugins>
             </build>
         </profile>
