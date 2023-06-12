@@ -26,5 +26,5 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: jacoco-report
-          path: storm-client/target/site/jacoco/
+          path: testing-reports/target/site/jacoco-aggregate
           if-no-files-found: error
