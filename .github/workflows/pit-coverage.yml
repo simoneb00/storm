@@ -1,4 +1,4 @@
-name: jacoco_coverage
+name: pit_coverage
 on:
   push:
     branches: ["master"]
@@ -21,10 +21,10 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
       - name: Build
-        run: mvn clean verify -P jacoco
+        run: mvn clean verify -P pit
       - name: Upload report
         uses: actions/upload-artifact@v3
         with:
-          name: jacoco-report
-          path: testing-reports/target/site/jacoco-aggregate
+          name: pit-report
+          path: storm-client/target/pit-reports
           if-no-files-found: error
