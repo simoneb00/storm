@@ -3,6 +3,10 @@ package org.apache.storm.utils;
 import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
+import org.apache.storm.tuple.Tuple;
+import org.mockito.MockedConstruction;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -87,6 +91,33 @@ public class TestingUtils {
                 doThrow(new RuntimeException("Invalid collector")).when(outputCollector).emit(anyString(), anyList(), any());
                 doThrow(new RuntimeException("Invalid collector")).when(outputCollector).emit(anyString(), anyList());
                 return outputCollector;
+            case NULL:
+                return null;
+            default:
+                fail("Unexpected type");
+                return null;
+        }
+    }
+
+    public static Tuple getTuple(int type) {
+        Tuple tuple = mock(Tuple.class);
+        switch (type) {
+            case VALID:
+                return tuple;
+            case INVALID:
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).getContext();
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).getSourceComponent();
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).getSourceStreamId();
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).getMessageId();
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).getFloat(anyInt());
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).select(any());
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).getSourceGlobalStreamId();
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).getShort(anyInt());
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).getSourceTask();
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).fieldIndex(anyString());
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).contains(anyString());
+                doThrow(new RuntimeException("Invalid tuple")).when(tuple).getBinary(anyInt());
+                return tuple;
             case NULL:
                 return null;
             default:

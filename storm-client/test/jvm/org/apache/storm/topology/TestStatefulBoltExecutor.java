@@ -10,6 +10,7 @@ import org.apache.storm.state.State;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.tuple.Tuple;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -20,6 +21,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
@@ -40,6 +42,8 @@ public class TestStatefulBoltExecutor {
 
     @Mock
     private IStatefulBolt<KeyValueState<String, String>> mockedBolt;
+    @Mock
+    private State state;
     private StatefulBoltExecutor executor;
     private Map<String, Object> topoConf = new HashMap<>();
     @Mock
@@ -66,7 +70,7 @@ public class TestStatefulBoltExecutor {
         dummyList.add(1);
         when(context.getComponentTasks(anyString())).thenReturn(dummyList);
 
-        executor.prepare(topoConf, context, outputCollector);
+        executor.prepare(topoConf, context, outputCollector, state);
     }
 
     /*  The commented out configurations fail: OutputCollector is never checked to be non-null or valid */
@@ -117,6 +121,44 @@ public class TestStatefulBoltExecutor {
         }
     }
 
+    private static Stream<Arguments> tupleParams() {
+        return Stream.of(
+                Arguments.of(getTuple(VALID), false),
+                Arguments.of(getTuple(INVALID), true),
+                Arguments.of(getTuple(NULL), true)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("tupleParams")
+    public void testExecute(Tuple tuple, boolean exceptionExpected) {
+        try {
+            executor.execute(tuple);
+            assertFalse(exceptionExpected);
+        } catch (RuntimeException e) {
+            assertTrue(exceptionExpected);
+        }
+    }
+
+    private static Stream<Arguments> handleTupleParams() {
+        return Stream.of(
+                Arguments.of(getTuple(VALID), false)
+                //Arguments.of(getTuple(INVALID), true),
+                //Arguments.of(getTuple(NULL), true)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("handleTupleParams")
+    public void testHandleTuple(Tuple tuple, boolean exceptionExpected) {
+        try {
+            executor.handleTuple(tuple);
+            assertFalse(exceptionExpected);
+        } catch (RuntimeException e) {
+            assertTrue(exceptionExpected);
+        }
+    }
+
     @Test
     public void testHandleTupleWithoutBoltInitialization() {
 
@@ -135,10 +177,78 @@ public class TestStatefulBoltExecutor {
      *  - ROLLBACK: rollback the previously prepared transaction(s)
      */
 
+    private static Stream<Arguments> handleCheckpointParams() {
+        return Stream.of(
+                Arguments.of(getTuple(VALID), CheckPointState.Action.INITSTATE, 0, false),
+                Arguments.of(getTuple(VALID), CheckPointState.Action.PREPARE, 0, false),
+                Arguments.of(getTuple(VALID), CheckPointState.Action.COMMIT, 0, false),
+                Arguments.of(getTuple(VALID), CheckPointState.Action.ROLLBACK, 0, false),
+                Arguments.of(getTuple(INVALID), CheckPointState.Action.INITSTATE, -1, true)
+        );
+    }
+
+    /**
+     * This method tests that:
+     * - the action is correctly performed on the bolt
+     * - the action is correctly performed on the state
+     * - the checkpointTuple is correctly emitted
+     *
+     * @param checkpointTuple
+     * @param action
+     * @param txid
+     * @param exceptionExpected
+     */
+    @ParameterizedTest
+    @MethodSource("handleCheckpointParams")
+    public void testHandleCheckpoint(Tuple checkpointTuple, CheckPointState.Action action, long txid, boolean exceptionExpected) {
+
+        List<Tuple> list;
+
+        try {
+
+            executor.handleCheckpoint(checkpointTuple, action, txid);
+
+            switch (action) {
+                case INITSTATE:
+                    verify(mockedBolt, times(1)).initState(any());
+                    list = new ArrayList<>();
+                    list.add(checkpointTuple);
+                    verify(outputCollector, times(1)).emit(eq(CHECKPOINT_STREAM_ID), eq(list), anyList());
+                    break;
+                case COMMIT:
+                    verify(mockedBolt, times(1)).preCommit(txid);
+                    verify(state, times(1)).commit(txid);
+                    list = new ArrayList<>();
+                    list.add(checkpointTuple);
+                    verify(outputCollector, times(1)).emit(eq(CHECKPOINT_STREAM_ID), eq(list), anyList());
+                    break;
+                case PREPARE:
+                    //verify(mockedBolt, times(1)).prePrepare(txid);
+                    //verify(state, times(1)).prepareCommit(txid);
+                    break;
+                case ROLLBACK:
+                    verify(mockedBolt, times(1)).preRollback();
+                    verify(state, times(1)).rollback();
+                    list = new ArrayList<>();
+                    list.add(checkpointTuple);
+                    verify(outputCollector, times(1)).emit(eq(CHECKPOINT_STREAM_ID), eq(list), anyList());
+                    break;
+                default:
+                    fail("Unexpected action");
+            }
+
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            assertTrue(exceptionExpected);
+        }
+    }
+
 
     /* test of methods processCheckpoint and handleCheckpoint, wrt the action INITSTATE, through the invocation of execute() on a checkpoint tuple */
     @Test
     public void testInitBoltCheckpoint() {
+
+        executor.prepare(topoConf, context, outputCollector);
 
         /* Expected behavior:
          * - if the bolt's state is not initialized, every attempt of execution will fail
