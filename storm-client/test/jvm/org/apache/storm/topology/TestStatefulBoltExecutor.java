@@ -180,11 +180,38 @@ public class TestStatefulBoltExecutor {
     private static Stream<Arguments> handleCheckpointParams() {
         return Stream.of(
                 Arguments.of(getTuple(VALID), CheckPointState.Action.INITSTATE, 0, false),
+                Arguments.of(getTuple(VALID), CheckPointState.Action.INITSTATE, -1, true),
                 Arguments.of(getTuple(VALID), CheckPointState.Action.PREPARE, 0, false),
+                Arguments.of(getTuple(VALID), CheckPointState.Action.PREPARE, -1, true),
                 Arguments.of(getTuple(VALID), CheckPointState.Action.COMMIT, 0, false),
+                Arguments.of(getTuple(VALID), CheckPointState.Action.COMMIT, -1, true),
                 Arguments.of(getTuple(VALID), CheckPointState.Action.ROLLBACK, 0, false),
-                Arguments.of(getTuple(INVALID), CheckPointState.Action.INITSTATE, -1, true)
-        );
+                Arguments.of(getTuple(VALID), CheckPointState.Action.ROLLBACK, -1, true),
+                Arguments.of(getTuple(VALID), null, 0, true),
+                Arguments.of(getTuple(VALID), null, -1, true),
+
+                Arguments.of(getTuple(INVALID), CheckPointState.Action.INITSTATE, 0, true),
+                Arguments.of(getTuple(INVALID), CheckPointState.Action.INITSTATE, -1, true),
+                Arguments.of(getTuple(INVALID), CheckPointState.Action.PREPARE, 0, true),
+                Arguments.of(getTuple(INVALID), CheckPointState.Action.PREPARE, -1, true),
+                Arguments.of(getTuple(INVALID), CheckPointState.Action.COMMIT, 0, true),
+                Arguments.of(getTuple(INVALID), CheckPointState.Action.COMMIT, -1, true),
+                Arguments.of(getTuple(INVALID), CheckPointState.Action.ROLLBACK, 0, true),
+                Arguments.of(getTuple(INVALID), CheckPointState.Action.ROLLBACK, -1, true),
+                Arguments.of(getTuple(INVALID), null, 0, true),
+                Arguments.of(getTuple(INVALID), null, -1, true),
+
+                Arguments.of(null, CheckPointState.Action.INITSTATE, 0, true),
+                Arguments.of(null, CheckPointState.Action.INITSTATE, -1, true),
+                Arguments.of(null, CheckPointState.Action.PREPARE, 0, true),
+                Arguments.of(null, CheckPointState.Action.PREPARE, -1, true),
+                Arguments.of(null, CheckPointState.Action.COMMIT, 0, true),
+                Arguments.of(null, CheckPointState.Action.COMMIT, -1, true),
+                Arguments.of(null, CheckPointState.Action.ROLLBACK, 0, true),
+                Arguments.of(null, CheckPointState.Action.ROLLBACK, -1, true),
+                Arguments.of(null, null, 0, true),
+                Arguments.of(null, null, -1, true)
+                );
     }
 
     /**
