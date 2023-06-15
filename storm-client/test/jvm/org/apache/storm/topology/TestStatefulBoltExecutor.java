@@ -338,6 +338,10 @@ public class TestStatefulBoltExecutor {
         when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.INITSTATE);
         executor.execute(mockedTuple);
 
+        /* testing that handleTuple executes the tuple on the bolt when the bolt is initialized (this was added after evaluation) */
+        Tuple tuple = mock(Tuple.class);
+        executor.handleTuple(tuple);
+        verify(mockedBolt, times(1)).execute(tuple);
 
         /* prepare: the method bolt.prePrepare() should be invoked, with the txid specified */
         when(mockedTuple.getValueByField(CHECKPOINT_FIELD_ACTION)).thenReturn(CheckPointState.Action.PREPARE);
@@ -396,5 +400,31 @@ public class TestStatefulBoltExecutor {
         verify(mockedBolt, times(1)).preRollback();
         verify(state, times(1)).rollback();
         assertTrue(hasRollback.get());
+    }
+
+    private static OutputFieldsDeclarer getInvalidDeclarer() {
+        OutputFieldsDeclarer declarer = mock(OutputFieldsGetter.class);
+        doThrow(new RuntimeException("invalid declarer")).when(declarer).declareStream(anyString(), any());
+        doThrow(new RuntimeException("invalid declarer")).when(declarer).declareStream(anyString(), anyBoolean(), any());
+        return declarer;
+    }
+
+    private static Stream<Arguments> declareOutputFieldsParams() {
+        return Stream.of(
+                Arguments.of(mock(OutputFieldsDeclarer.class), false),
+                Arguments.of(getInvalidDeclarer(), true),
+                Arguments.of(null, true)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("declareOutputFieldsParams")
+    public void testDeclareOutputFields(OutputFieldsDeclarer declarer, boolean exceptionExpected) {
+        try {
+            executor.declareOutputFields(declarer);
+            assertFalse(exceptionExpected);
+        } catch (RuntimeException e) {
+            assertTrue(exceptionExpected);
+        }
     }
 }
