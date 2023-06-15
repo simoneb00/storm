@@ -159,16 +159,6 @@ public class TestStatefulBoltExecutor {
         }
     }
 
-    @Test
-    public void testHandleTupleWithoutBoltInitialization() {
-
-        Tuple mockedTuple = mock(Tuple.class);
-
-        /* no bolt initialization, so we don't expect the bolt to execute */
-        executor.execute(mockedTuple);
-        verify(mockedBolt, times(0)).execute(mockedTuple);
-    }
-
 
     /*  Actions:
      *  - INITSTATE: initialize the state
@@ -250,8 +240,8 @@ public class TestStatefulBoltExecutor {
                     verify(outputCollector, times(1)).emit(eq(CHECKPOINT_STREAM_ID), eq(list), anyList());
                     break;
                 case PREPARE:
-                    //verify(mockedBolt, times(1)).prePrepare(txid);
-                    //verify(state, times(1)).prepareCommit(txid);
+                    // in this phase, the bolt is not initialized yet, so the prepare action should fail
+                    verify(outputCollector, times(1)).fail(checkpointTuple);
                     break;
                 case ROLLBACK:
                     verify(mockedBolt, times(1)).preRollback();
@@ -265,7 +255,6 @@ public class TestStatefulBoltExecutor {
             }
 
         } catch (RuntimeException e) {
-            e.printStackTrace();
             assertTrue(exceptionExpected);
         }
     }
@@ -326,13 +315,10 @@ public class TestStatefulBoltExecutor {
         /*  The action PREPARE prepares a transaction to be committed, while the action COMMIT actually commits the transaction.
          *  It is important that, when these actions are requested, the methods bolt.prePrepare() and bolt.preCommit(), as well as the methods state.prepareCommit() and state.commit() are invoked,
          *  in order to allow the executions of preparatory operations respectively on the bolt and on the state (the latter is crucial for obvious fault tolerance reasons)
-         *
          */
 
-        Tuple mockedTuple = mock(Tuple.class);
-        State state = mock(State.class);
 
-        executor.prepare(topoConf, context, outputCollector, state);    // we re-prepare the executor, specifying the state, to test the interaction with the state
+        Tuple mockedTuple = mock(Tuple.class);
 
         /* expected behavior:
          * - if we execute the action PREPARE, without initializing the bolt -> fail
