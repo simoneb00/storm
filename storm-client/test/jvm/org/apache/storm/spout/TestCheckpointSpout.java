@@ -3,6 +3,7 @@ package org.apache.storm.spout;
 import org.apache.storm.state.InMemoryKeyValueState;
 import org.apache.storm.state.KeyValueState;
 import org.apache.storm.task.TopologyContext;
+import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.tuple.Tuple;
 import org.apache.storm.tuple.Values;
 import org.junit.jupiter.api.BeforeEach;
@@ -279,6 +280,47 @@ public class TestCheckpointSpout {
 
         } catch (ClassCastException | NullPointerException e) {     // we expect either a ClassCastException (it is not possible to cast msgId to a long)
             assertTrue(exceptionExpected);                          // or a NullPointerException (msgId = null)
+        }
+    }
+
+    /* the following methods were added after coverage evaluation */
+
+    /* the commented out test cases fail */
+    private static Stream<Arguments> testFailParams() {
+        return Stream.of(
+                Arguments.of(1L, false)
+                //Arguments.of("string", true),
+                //Arguments.of(null, true)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("testFailParams")
+    public void testFail(Object msgId, boolean exceptionExpected) {
+        try {
+            spout.fail(msgId);
+            assertFalse(exceptionExpected);
+        } catch (Exception e) {
+            assertTrue(exceptionExpected);
+        }
+    }
+
+    private static Stream<Arguments> declareOutputFieldsParams() {
+        return Stream.of(
+                Arguments.of(mock(OutputFieldsDeclarer.class), false),
+                Arguments.of(getInvalidDeclarer(), true),
+                Arguments.of(null, true)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("declareOutputFieldsParams")
+    public void testDeclareOutputFields(OutputFieldsDeclarer declarer, boolean exceptionExpected) {
+        try {
+            spout.declareOutputFields(declarer);
+            assertFalse(exceptionExpected);
+        } catch (RuntimeException e) {
+            assertTrue(exceptionExpected);
         }
     }
 }

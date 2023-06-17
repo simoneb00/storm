@@ -3,6 +3,8 @@ package org.apache.storm.utils;
 import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
+import org.apache.storm.topology.OutputFieldsDeclarer;
+import org.apache.storm.topology.OutputFieldsGetter;
 import org.apache.storm.tuple.Tuple;
 import org.mockito.MockedConstruction;
 import org.mockito.invocation.InvocationOnMock;
@@ -124,5 +126,12 @@ public class TestingUtils {
                 fail("Unexpected type");
                 return null;
         }
+    }
+
+    public static OutputFieldsDeclarer getInvalidDeclarer() {
+        OutputFieldsDeclarer declarer = mock(OutputFieldsGetter.class);
+        doThrow(new RuntimeException("invalid declarer")).when(declarer).declareStream(anyString(), any());
+        doThrow(new RuntimeException("invalid declarer")).when(declarer).declareStream(anyString(), anyBoolean(), any());
+        return declarer;
     }
 }

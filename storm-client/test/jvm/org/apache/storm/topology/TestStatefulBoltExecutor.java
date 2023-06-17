@@ -402,13 +402,6 @@ public class TestStatefulBoltExecutor {
         assertTrue(hasRollback.get());
     }
 
-    private static OutputFieldsDeclarer getInvalidDeclarer() {
-        OutputFieldsDeclarer declarer = mock(OutputFieldsGetter.class);
-        doThrow(new RuntimeException("invalid declarer")).when(declarer).declareStream(anyString(), any());
-        doThrow(new RuntimeException("invalid declarer")).when(declarer).declareStream(anyString(), anyBoolean(), any());
-        return declarer;
-    }
-
     private static Stream<Arguments> declareOutputFieldsParams() {
         return Stream.of(
                 Arguments.of(mock(OutputFieldsDeclarer.class), false),

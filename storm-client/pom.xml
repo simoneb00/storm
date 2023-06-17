@@ -309,7 +309,7 @@
             </dependencies>
             <build>
                 <plugins>
-                    <!-- Copy ba-dua-agent-rt from .m2 directory to target/dependency -->
+                    <!-- Copy ba-dua-agent-rt and ba-dua-cli from .m2 directory to target/dependency -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-dependency-plugin</artifactId>
@@ -327,12 +327,17 @@
                                             <classifier>all</classifier>
                                             <version>${ba-dua.version}</version>
                                         </artifactItem>
+                                        <artifactItem>
+                                            <groupId>br.usp.each.saeg</groupId>
+                                            <artifactId>ba-dua-cli</artifactId>
+                                            <classifier>all</classifier>
+                                            <version>${ba-dua.version}</version>
+                                        </artifactItem>
                                     </artifactItems>
                                 </configuration>
                             </execution>
                         </executions>
                     </plugin>
-
                     <!-- The report generation in xml format is not available due to issues with exec-maven-plugin -->
                 </plugins>
             </build>
