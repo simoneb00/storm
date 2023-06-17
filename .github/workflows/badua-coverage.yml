@@ -22,9 +22,14 @@ jobs:
           mvn clean install
       - name: Build
         run: mvn clean verify -P badua
+      - name: XML Conversion
+        run: |
+          cd storm-client/target
+          cp dependency/ba-dua-cli-0.6.0-all.jar .
+          java -jar ba-dua-cli-0.6.0-all.jar report -input badua.ser -classes classes -show-classes -show-methods -xml badua.xml
       - name: Upload report
         uses: actions/upload-artifact@v3
         with:
           name: badua-report
-          path: storm-client/target/badua.ser   # due to issues with the conversion to xml format
+          path: storm-client/target/badua.xml   # due to issues with the conversion to xml format
           if-no-files-found: error
