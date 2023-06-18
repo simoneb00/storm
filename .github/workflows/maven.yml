@@ -1,4 +1,4 @@
-name: Storm CI with Maven
+name: surefire_failsafe_build
 
 on:
   push:
