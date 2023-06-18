@@ -19,3 +19,15 @@ jobs:
           distribution: 'temurin'
       - name: Build with Maven
         run: mvn clean verify
+      - name: Upload Surefire reports
+        uses: actions/upload-artifact@v3
+        with: 
+          name: surefire-reports
+          path: storm-client/target/surefire-reports
+          if-no-files-found: error
+      - name: Upload Failsafe reports
+        uses: actions/upload-artifact@v3
+        with: 
+          name: failsafe-reports
+          path: storm-server/target/failsafe-reports
+          if-no-files-found: error
